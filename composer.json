@@ -1,0 +1,54 @@
+{
+    "name": "deniscsz/horizon-cluster-scaling",
+    "description": "Makes Laravel Horizon cluster-aware by dynamically adjusting maxProcesses based on the number of active master supervisors across your server cluster.",
+    "keywords": [
+        "laravel",
+        "horizon",
+        "cluster",
+        "scaling",
+        "auto-scaling",
+        "multi-server",
+        "queue"
+    ],
+    "homepage": "https://github.com/deniscsz/horizon-cluster-scaling",
+    "license": "MIT",
+    "require": {
+        "php": "^8.1",
+        "illuminate/cache": "^11.0|^12.0|^13.0",
+        "illuminate/config": "^11.0|^12.0|^13.0",
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "laravel/horizon": "^5.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^2.0|^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Deniscsz\\HorizonClusterScaling\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Deniscsz\\HorizonClusterScaling\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Deniscsz\\HorizonClusterScaling\\HorizonClusterScalingServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
