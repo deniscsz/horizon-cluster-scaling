@@ -174,58 +174,23 @@ it('distributes minProcesses=1 across 3 masters — rank 0 gets 1, others get 0'
     $masters = ['alpha-ab12', 'beta-cd34', 'gamma-ef56'];
     $this->resolver->shouldReceive('resolveNames')->andReturn($masters);
 
+    $capturedMins = [];
+
+    $this->innerScaler->shouldReceive('scale')
+        ->times(3)
+        ->withArgs(function (Supervisor $s) use (&$capturedMins) {
+            $capturedMins[] = $s->options->minProcesses;
+
+            return true;
+        });
+
     // minProcesses=1, 3 masters: base=0, remainder=1
-    // Rank 0 (alpha): 0 + 1 = 1
-    $supervisorRank0 = createSupervisor(maxProcesses: 10, minProcesses: 1, masterName: 'alpha-ab12');
-    $capturedMin0 = null;
+    $this->scaler->scale(createSupervisor(maxProcesses: 10, minProcesses: 1, masterName: 'alpha-ab12'));
+    $this->scaler->scale(createSupervisor(maxProcesses: 10, minProcesses: 1, masterName: 'beta-cd34'));
+    $this->scaler->scale(createSupervisor(maxProcesses: 10, minProcesses: 1, masterName: 'gamma-ef56'));
 
-    $this->innerScaler->shouldReceive('scale')
-        ->withArgs(function (Supervisor $s) use (&$capturedMin0, $supervisorRank0) {
-            if ($s === $supervisorRank0) {
-                $capturedMin0 = $s->options->minProcesses;
-            }
-
-            return true;
-        });
-
-    $this->scaler->scale($supervisorRank0);
-
-    expect($capturedMin0)->toBe(1);
-
-    // Rank 1 (beta): 0
-    $supervisorRank1 = createSupervisor(maxProcesses: 10, minProcesses: 1, masterName: 'beta-cd34');
-    $capturedMin1 = null;
-
-    $this->innerScaler->shouldReceive('scale')
-        ->withArgs(function (Supervisor $s) use (&$capturedMin1, $supervisorRank1) {
-            if ($s === $supervisorRank1) {
-                $capturedMin1 = $s->options->minProcesses;
-            }
-
-            return true;
-        });
-
-    $this->scaler->scale($supervisorRank1);
-
-    expect($capturedMin1)->toBe(0);
-
-    // Rank 2 (gamma): 0
-    $supervisorRank2 = createSupervisor(maxProcesses: 10, minProcesses: 1, masterName: 'gamma-ef56');
-    $capturedMin2 = null;
-
-    $this->innerScaler->shouldReceive('scale')
-        ->withArgs(function (Supervisor $s) use (&$capturedMin2, $supervisorRank2) {
-            if ($s === $supervisorRank2) {
-                $capturedMin2 = $s->options->minProcesses;
-            }
-
-            return true;
-        });
-
-    $this->scaler->scale($supervisorRank2);
-
-    expect($capturedMin2)->toBe(0);
-
+    // Rank 0 (alpha): 1, Rank 1 (beta): 0, Rank 2 (gamma): 0
+    expect($capturedMins)->toBe([1, 0, 0]);
     // Cluster total: 1 + 0 + 0 = 1 ✓
 });
 
@@ -234,49 +199,24 @@ it('distributes minProcesses=2 across 3 masters — ranks 0,1 get 1, rank 2 gets
     config(['horizon-cluster-scaling.min_effective_max' => null]);
 
     $masters = ['alpha-ab12', 'beta-cd34', 'gamma-ef56'];
+    $this->resolver->shouldReceive('resolveNames')->andReturn($masters);
+
+    $capturedMins = [];
+
+    $this->innerScaler->shouldReceive('scale')
+        ->times(3)
+        ->withArgs(function (Supervisor $s) use (&$capturedMins) {
+            $capturedMins[] = $s->options->minProcesses;
+
+            return true;
+        });
 
     // base=0, remainder=2: ranks 0,1 get 1; rank 2 gets 0
+    $this->scaler->scale(createSupervisor(maxProcesses: 10, minProcesses: 2, masterName: 'alpha-ab12'));
+    $this->scaler->scale(createSupervisor(maxProcesses: 10, minProcesses: 2, masterName: 'beta-cd34'));
+    $this->scaler->scale(createSupervisor(maxProcesses: 10, minProcesses: 2, masterName: 'gamma-ef56'));
 
-    // Rank 0
-    $this->resolver->shouldReceive('resolveNames')->andReturn($masters);
-    $supervisor0 = createSupervisor(maxProcesses: 10, minProcesses: 2, masterName: 'alpha-ab12');
-    $min0 = null;
-    $this->innerScaler->shouldReceive('scale')->withArgs(function (Supervisor $s) use (&$min0, $supervisor0) {
-        if ($s === $supervisor0) {
-            $min0 = $s->options->minProcesses;
-        }
-
-        return true;
-    });
-    $this->scaler->scale($supervisor0);
-    expect($min0)->toBe(1);
-
-    // Rank 1
-    $supervisor1 = createSupervisor(maxProcesses: 10, minProcesses: 2, masterName: 'beta-cd34');
-    $min1 = null;
-    $this->innerScaler->shouldReceive('scale')->withArgs(function (Supervisor $s) use (&$min1, $supervisor1) {
-        if ($s === $supervisor1) {
-            $min1 = $s->options->minProcesses;
-        }
-
-        return true;
-    });
-    $this->scaler->scale($supervisor1);
-    expect($min1)->toBe(1);
-
-    // Rank 2
-    $supervisor2 = createSupervisor(maxProcesses: 10, minProcesses: 2, masterName: 'gamma-ef56');
-    $min2 = null;
-    $this->innerScaler->shouldReceive('scale')->withArgs(function (Supervisor $s) use (&$min2, $supervisor2) {
-        if ($s === $supervisor2) {
-            $min2 = $s->options->minProcesses;
-        }
-
-        return true;
-    });
-    $this->scaler->scale($supervisor2);
-    expect($min2)->toBe(0);
-
+    expect($capturedMins)->toBe([1, 1, 0]);
     // Cluster total: 1 + 1 + 0 = 2 ✓
 });
 
@@ -287,32 +227,22 @@ it('distributes minProcesses=4 across 3 masters as 2,1,1', function () {
     $masters = ['alpha-ab12', 'beta-cd34', 'gamma-ef56'];
     $this->resolver->shouldReceive('resolveNames')->andReturn($masters);
 
+    $capturedMins = [];
+
+    $this->innerScaler->shouldReceive('scale')
+        ->times(3)
+        ->withArgs(function (Supervisor $s) use (&$capturedMins) {
+            $capturedMins[] = $s->options->minProcesses;
+
+            return true;
+        });
+
     // base=1, remainder=1: rank 0 gets 2, ranks 1,2 get 1
+    $this->scaler->scale(createSupervisor(maxProcesses: 10, minProcesses: 4, masterName: 'alpha-ab12'));
+    $this->scaler->scale(createSupervisor(maxProcesses: 10, minProcesses: 4, masterName: 'beta-cd34'));
+    $this->scaler->scale(createSupervisor(maxProcesses: 10, minProcesses: 4, masterName: 'gamma-ef56'));
 
-    $supervisor0 = createSupervisor(maxProcesses: 10, minProcesses: 4, masterName: 'alpha-ab12');
-    $min0 = null;
-    $this->innerScaler->shouldReceive('scale')->withArgs(function (Supervisor $s) use (&$min0, $supervisor0) {
-        if ($s === $supervisor0) {
-            $min0 = $s->options->minProcesses;
-        }
-
-        return true;
-    });
-    $this->scaler->scale($supervisor0);
-    expect($min0)->toBe(2);
-
-    $supervisor1 = createSupervisor(maxProcesses: 10, minProcesses: 4, masterName: 'beta-cd34');
-    $min1 = null;
-    $this->innerScaler->shouldReceive('scale')->withArgs(function (Supervisor $s) use (&$min1, $supervisor1) {
-        if ($s === $supervisor1) {
-            $min1 = $s->options->minProcesses;
-        }
-
-        return true;
-    });
-    $this->scaler->scale($supervisor1);
-    expect($min1)->toBe(1);
-
+    expect($capturedMins)->toBe([2, 1, 1]);
     // Cluster total: 2 + 1 + 1 = 4 ✓
 });
 
